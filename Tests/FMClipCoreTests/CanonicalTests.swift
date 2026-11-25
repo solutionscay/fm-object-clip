@@ -120,11 +120,11 @@ final class CanonicalTests: XCTestCase {
         }
         // FileMaker: first the compact XMSS, then the pretty XMSS with a text flavor.
         FMPasteboard.write(Data(compact.utf8), as: .XMSS, to: pasteboard)
-        watcher.poll()
+        watcher.settle()
         pasteboard.clearContents()
         pasteboard.setData(Data(pretty.utf8), forType: FMClass.XMSS.pasteboardType)
         pasteboard.setString(pretty, forType: .string)
-        watcher.poll()
+        watcher.settle()
         XCTAssertEqual(captures, 2)
         XCTAssertEqual(store.entries.count, 1)
         XCTAssertEqual(try store.data(for: store.entries[0]), Data(compact.utf8))

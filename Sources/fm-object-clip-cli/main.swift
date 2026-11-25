@@ -259,12 +259,12 @@ func run(_ args: Arguments) throws {
         let objects = FMPasteboard.read()
         if args.json {
             printJSON(objects.map { o -> [String: Any] in
-                ["class": o.cls.rawValue, "bytes": o.data.count]
+                ["class": o.cls.rawValue, "bytes": o.data.count, "name": o.name as Any? ?? NSNull(), "folder": o.folder as Any? ?? NSNull()]
             })
         } else {
             if objects.isEmpty { print("no FileMaker objects on the clipboard") }
             for o in objects {
-                print("\(o.cls.rawValue)\t\(o.data.count) bytes")
+                print("\(o.cls.rawValue)\t\(o.data.count) bytes\(o.name.map { "\tname: \($0)" } ?? "")\(o.folder.map { "\tfolder: \($0)" } ?? "")")
             }
         }
 
@@ -403,7 +403,7 @@ func run(_ args: Arguments) throws {
         let watcher = ClipboardWatcher(onOther: { store.forgetRestore() }) { objects in
             for obj in objects {
                 do {
-                    let e = try store.add(obj.data, cls: obj.cls)
+                    let e = try store.add(obj.data, cls: obj.cls, name: obj.name, folder: obj.folder)
                     if json { printJSON(entryJSON(e, store), pretty: false) } else { print(line(e)) }
                     // A copy from FileMaker Pro is kept as it is; restore needs --force for it.
                     if let message = PortalCheck.message(cls: obj.cls, data: obj.data) {

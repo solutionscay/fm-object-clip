@@ -3,7 +3,7 @@ import CryptoKit
 import Foundation
 
 /// One entry of the history. `index.json` keeps these fields. `name` is optional: it is in the index only
-/// when the user (Rename, or `fm-object-clip-cli add --name`) gave the entry a name.
+/// when the user (Rename, or `fm-object-clip-cli add --name`) or the clipboard (class `FOPN`) gave the entry a name.
 public struct HistoryEntry: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let cls: FMClass
@@ -193,6 +193,8 @@ public final class HistoryStore {
     /// bytes of the first capture.
     /// A new name replaces the name of that entry, and a new folder moves that entry to the folder. A capture with
     /// no name or no folder keeps the name or the folder of that entry. The store makes the folder if it does not exist.
+    /// For a capture from the clipboard, a folder with the name of the uncategorized group is no folder (see
+    /// `isUncategorizedLabel`).
     @discardableResult
     public func add(_ data: Data, cls: FMClass, name: String? = nil, folder: String? = nil,
                     source: String = "clipboard", now: Date = Date()) throws -> HistoryEntry {
@@ -201,7 +203,9 @@ public final class HistoryStore {
             let hash = Self.sha256(data)
             let key = Canonical.key(for: data)
             let name = Self.cleanName(name)
-            if source == "clipboard", name == nil, folder == nil, let restore = lastRestore(),
+            var folderName = Self.cleanName(folder)
+            if source == "clipboard", let f = folderName, isUncategorizedLabel(f) { folderName = nil }
+            if source == "clipboard", name == nil, folderName == nil, let restore = lastRestore(),
                restore.matches(cls: cls, sha256: hash, canonical: key),
                let i = duplicateIndex(cls: cls, sha256: hash, canonical: key) {
                 // The clipboard still holds an entry that the app or the CLI put there (Copy Entry, restore).
@@ -209,7 +213,7 @@ public final class HistoryStore {
                 return entries[i]
             }
             if source == "clipboard" { forgetRestore() }  // other contents are on the clipboard now
-            let folder = try Self.cleanName(folder).map(makeFolderUnlocked)
+            let folder = try folderName.map(makeFolderUnlocked)
             if let i = duplicateIndex(cls: cls, sha256: hash, canonical: key) {
                 var entry = entries.remove(at: i)
                 entry.time = time
@@ -299,6 +303,16 @@ public final class HistoryStore {
         }
         for old in gone { try? FileManager.default.removeItem(at: fileURL(for: old)) }
         return gone
+    }
+
+    /// True if a folder name from the clipboard means the uncategorized group: the name is the label of the group
+    /// (Settings) or the default label "Uncategorized", in any case, and no folder has this name. A tool does not know
+    /// the label of the user, so it can write "Uncategorized" for no folder. A folder that the user made with this name
+    /// stays a folder. Call it under the lock.
+    func isUncategorizedLabel(_ name: String) -> Bool {
+        guard existingFolder(name) == nil else { return false }
+        return [settings.displayName, ClipSettings.defaultUncategorizedName]
+            .contains { $0.caseInsensitiveCompare(name) == .orderedSame }
     }
 
     /// The number of uncategorized entries (entries in no folder).

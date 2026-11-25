@@ -46,18 +46,18 @@ final class PasteboardTests: XCTestCase {
 
         pasteboard.clearContents()
         pasteboard.setString("plain text", forType: .string)
-        XCTAssertEqual(watcher.poll(), [])
+        XCTAssertEqual(watcher.settle(), [])
         XCTAssertTrue(captured.isEmpty)
 
         let data = Samples.data(for: .XMSS)
         FMPasteboard.write(data, as: .XMSS, to: pasteboard)
-        XCTAssertEqual(watcher.poll().map(\.cls), [.XMSS])
+        XCTAssertEqual(watcher.settle().map(\.cls), [.XMSS])
         XCTAssertEqual(watcher.poll(), [])  // same change count
         XCTAssertEqual(captured.count, 1)
 
         let count = FMPasteboard.write(data, as: .XMSS, to: pasteboard)!
         watcher.ignore(changeCount: count)
-        XCTAssertEqual(watcher.poll(), [])
+        XCTAssertEqual(watcher.settle(), [])
         XCTAssertEqual(captured.count, 1)
     }
 }

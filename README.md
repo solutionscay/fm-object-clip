@@ -56,6 +56,8 @@ The app does not capture plain text or other FileMaker clipboard types, for exam
 
 If you copy the same object again, the app does not make a second entry. It moves the old entry to the top.
 
+A tool that puts FileMaker objects on the clipboard can also give the entry a name and a folder. See [Name and folder from the clipboard](docs/DEVELOPMENT.md#name-and-folder-from-the-clipboard).
+
 When you close the window, the app continues to keep your copies. To open the window again, click the app in the Dock, or select **Window** > **History Window** (Cmd+0). To stop the app, press Cmd+Q.
 
 ### Paste an object again

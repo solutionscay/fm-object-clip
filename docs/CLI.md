@@ -18,7 +18,7 @@ Each command takes `--history DIR` (the default is the history of the app) and `
 | `show ID` | The data of one entry. |
 | `xml ID` | The stored XML bytes, to stdout. |
 | `folders` | The folders, in the order of the list, and the number of entries in each. |
-| `info` | The FileMaker objects on the clipboard now. |
+| `info` | The FileMaker objects on the clipboard now, with the name and the folder from `FOPN` and `FOPF` if the clipboard has them. |
 | `add FILE.xml --class C [--name NAME] [--folder NAME] [--force]` | Adds an entry from a file, with the rules of a capture. If the class and the XML are the same as an entry, it updates the name and the folder of that entry. For `XML2`, the tool does the [portal check](#portal-check) first. |
 | `restore ID [--force]` | Puts the entry on the clipboard with its class. The entry keeps its time and its place. For `XML2`, the tool does the [portal check](#portal-check) first. |
 | `rename ID NAME` | Gives the entry a name. `""` gives the automatic title again. |
@@ -76,7 +76,7 @@ With `--json`, the read commands give an entry or a list of entries. The write c
 | `file` | The path of the XML file |
 | `canonical` | The SHA-256 of the canonical XML. Two entries with the same class and the same value are the same object. |
 
-A folder is `{"name", "count"}`. `folder rename` also gives `oldName`. `folder delete` gives `{"name", "movedEntries"}`. `settings` gives `{"appearance", "uncategorizedName", "uncategorizedLimit"}`. `settings set` also gives `deletedEntries`. `folder move` gives the list of folders in the new order. `info` gives `{"class", "bytes"}` for each object. `backup` gives `{"file", "entries", "folders", "settings"}`. `import-backup` gives `{"mode": "merge", "added", "skippedDuplicates", "foldersAdded"}`, or `{"mode": "replace", "entries", "folders", "safetyBackup"}`.
+A folder is `{"name", "count"}`. `folder rename` also gives `oldName`. `folder delete` gives `{"name", "movedEntries"}`. `settings` gives `{"appearance", "uncategorizedName", "uncategorizedLimit"}`. `settings set` also gives `deletedEntries`. `folder move` gives the list of folders in the new order. `info` gives `{"class", "bytes", "name", "folder"}` for each object. `name` and `folder` are `null` when the clipboard has no `FOPN` or `FOPF` (see [Name and folder from the clipboard](DEVELOPMENT.md#name-and-folder-from-the-clipboard)). `backup` gives `{"file", "entries", "folders", "settings"}`. `import-backup` gives `{"mode": "merge", "added", "skippedDuplicates", "foldersAdded"}`, or `{"mode": "replace", "entries", "folders", "safetyBackup"}`.
 
 ## Exit codes
 

@@ -145,6 +145,40 @@ final class PortalCheckTests: XCTestCase {
                       model.errorMessage ?? "nil")
     }
 
+    /// A capture with a name and a folder from the clipboard (FOPN, FOPF) keeps them, and still gets the portal
+    /// warning when the check fails.
+    func testCaptureWithNameAndFolderStillWarnsForABadPortal() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("fm-object-clip-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try HistoryStore(folder: folder)
+        let model = AppModel(store: store, watch: false)
+        let board = NSPasteboard(name: NSPasteboard.Name("fm-object-clip-tests-\(UUID().uuidString)"))
+        defer { board.releaseGlobally() }
+
+        board.declareTypes([FMClass.XML2.pasteboardType, FMPasteboard.nameType, FMPasteboard.folderType], owner: nil)
+        board.setData(clip("116", "24", "136", "234"), forType: FMClass.XML2.pasteboardType)
+        board.setData(Data("Bad portal".utf8), forType: FMPasteboard.nameType)
+        board.setData(Data("Layouts".utf8), forType: FMPasteboard.folderType)
+        model.capture(FMPasteboard.read(board))
+
+        let e = try XCTUnwrap(store.entries.first)
+        XCTAssertEqual(e.name, "Bad portal")
+        XCTAssertEqual(e.folder, "Layouts")
+        XCTAssertTrue(model.errorMessage?.hasPrefix("The app kept the capture, but Copy Entry will ask") == true,
+                      model.errorMessage ?? "nil")
+
+        // A good portal with a name and a folder: no warning.
+        model.errorMessage = nil
+        board.declareTypes([FMClass.XML2.pasteboardType, FMPasteboard.nameType, FMPasteboard.folderType], owner: nil)
+        board.setData(try Self.fixture("portal-real.xml"), forType: FMClass.XML2.pasteboardType)
+        board.setData(Data("Good portal".utf8), forType: FMPasteboard.nameType)
+        board.setData(Data("Layouts".utf8), forType: FMPasteboard.folderType)
+        model.capture(FMPasteboard.read(board))
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(store.entries.first?.name, "Good portal")
+        XCTAssertEqual(store.entries.first?.folder, "Layouts")
+    }
+
     /// A temp history, a model on it, a private pasteboard, and a bad layout entry whose question stays open.
     /// `answer` answers the question later, as a sheet does.
     func pendingCopy() throws -> (HistoryStore, AppModel, NSPasteboard, HistoryEntry, (Bool) -> Void, URL) {

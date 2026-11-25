@@ -305,7 +305,7 @@ final class AppModel: ObservableObject {
         defer { expandNewFolders(since: before) }
         for obj in objects {
             do {
-                try store.add(obj.data, cls: obj.cls)
+                try store.add(obj.data, cls: obj.cls, name: obj.name, folder: obj.folder)
                 // A copy from FileMaker Pro is kept as it is. If the portal check finds a problem, say so now,
                 // because Copy Entry asks before it copies this entry.
                 if let message = PortalCheck.message(cls: obj.cls, data: obj.data) {

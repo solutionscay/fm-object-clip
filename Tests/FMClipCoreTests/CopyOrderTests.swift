@@ -59,9 +59,9 @@ final class CopyOrderTests: XCTestCase {
 
         // FileMaker Pro puts the same script on the clipboard again (compact, then pretty-printed).
         FMPasteboard.write(Self.compact(1), as: .XMSS, to: pasteboard)
-        XCTAssertEqual(watcher.poll().count, 1)
+        XCTAssertEqual(watcher.settle().count, 1)
         FMPasteboard.write(Self.pretty(1), as: .XMSS, to: pasteboard)
-        XCTAssertEqual(watcher.poll().count, 1)
+        XCTAssertEqual(watcher.settle().count, 1)
 
         try store.reload()
         XCTAssertEqual(store.entries, before)
@@ -74,9 +74,9 @@ final class CopyOrderTests: XCTestCase {
         let watcher = makeWatcher(store)  // the app
         let cli = try HistoryStore(folder: folder)  // another process on the same history
         XCTAssertNotNil(try cli.copy(three[0], to: pasteboard))
-        XCTAssertEqual(watcher.poll().count, 1)  // the app does not know the change count of the CLI
+        XCTAssertEqual(watcher.settle().count, 1)  // the app does not know the change count of the CLI
         FMPasteboard.write(Self.pretty(1), as: .XMSS, to: pasteboard)
-        XCTAssertEqual(watcher.poll().count, 1)
+        XCTAssertEqual(watcher.settle().count, 1)
 
         try store.reload()
         XCTAssertEqual(store.entries, before)
@@ -90,15 +90,73 @@ final class CopyOrderTests: XCTestCase {
 
         pasteboard.clearContents()
         pasteboard.setString("plain text", forType: .string)
-        XCTAssertEqual(watcher.poll(), [])
+        XCTAssertEqual(watcher.settle(), [])
         XCTAssertNil(store.lastRestore())
 
         // Now a copy of the same script in FileMaker Pro.
         FMPasteboard.write(Self.pretty(1), as: .XMSS, to: pasteboard)
-        watcher.poll()
+        watcher.settle()
         XCTAssertEqual(store.entries.first?.id, three[0].id)
         XCTAssertNotEqual(store.entries.first?.time, three[0].time)
         XCTAssertEqual(store.entries.count, 3)
+    }
+
+    /// Re-review finding: plain text that a newer change replaces before it settles still forgets the restore record.
+    /// Then a real FileMaker copy of the restored entry moves it to the top.
+    func testPlainTextReplacedBeforeItSettlesStillForgetsTheRestore() throws {
+        let three = try addThree()
+        let watcher = makeWatcher(store)
+        var clock = Date(timeIntervalSince1970: 1000)
+        watcher.now = { clock }
+        XCTAssertEqual(store.entries.first?.id, three[2].id)
+
+        // Restore entry 1 (the oldest) from the app: the watcher ignores this copy.
+        let count = try XCTUnwrap(store.copy(three[0], to: pasteboard))
+        watcher.ignore(changeCount: count)
+        XCTAssertNotNil(store.lastRestore())
+
+        // Plain text at t=0.1, a check at t=0.4.
+        clock += 0.1
+        pasteboard.clearContents()
+        pasteboard.setString("plain text", forType: .string)
+        clock += 0.3
+        XCTAssertEqual(watcher.poll(), [])
+        XCTAssertNil(store.lastRestore())  // forgotten at the first check of the text
+
+        // A real FileMaker copy of entry 1 at t=0.7, before the text settled. Checks at t=0.8 and t=1.2.
+        clock += 0.3
+        FMPasteboard.write(Self.pretty(1), as: .XMSS, to: pasteboard)
+        clock += 0.1
+        XCTAssertEqual(watcher.poll(), [])
+        clock += 0.4
+        XCTAssertEqual(watcher.poll().count, 1)
+
+        XCTAssertNil(store.lastRestore())
+        XCTAssertEqual(store.entries.first?.id, three[0].id)  // moved to the top
+        XCTAssertNotEqual(store.entries.first?.time, three[0].time)
+        XCTAssertEqual(store.entries.count, 3)
+    }
+
+    /// onOther runs one time for each change with no FileMaker class, at its first check, and never for a change
+    /// with FileMaker objects (also when a newer change drops it).
+    func testOnOtherRunsOnceAndOnlyForContentsWithNoFileMakerClass() throws {
+        var others = 0
+        let watcher = ClipboardWatcher(pasteboard: pasteboard, onOther: { others += 1 }) { _ in }
+        pasteboard.clearContents()
+        pasteboard.setString("text", forType: .string)
+        XCTAssertEqual(watcher.poll(), [])
+        XCTAssertEqual(others, 1)
+        XCTAssertEqual(watcher.poll(), [])  // settles: no second call
+        XCTAssertEqual(others, 1)
+
+        FMPasteboard.write(Self.compact(1), as: .XMSS, to: pasteboard)
+        XCTAssertEqual(watcher.poll(), [])  // waits
+        let count = try XCTUnwrap(FMPasteboard.write(Self.compact(2), as: .XMSS, to: pasteboard))
+        watcher.ignore(changeCount: count)  // drops the waiting FileMaker change
+        pasteboard.clearContents()
+        pasteboard.setString("more text", forType: .string)
+        XCTAssertEqual(watcher.settle(), [])
+        XCTAssertEqual(others, 2)
     }
 
     func testAnIdenticalCopyAfterAnotherObjectStillMovesTheEntry() throws {
@@ -106,10 +164,10 @@ final class CopyOrderTests: XCTestCase {
         let watcher = makeWatcher(store)
         try store.copy(three[0], to: pasteboard)
         FMPasteboard.write(Self.compact(9), as: .XMSS, to: pasteboard)  // a new object
-        watcher.poll()
+        watcher.settle()
         XCTAssertNil(store.lastRestore())
         FMPasteboard.write(Self.compact(1), as: .XMSS, to: pasteboard)
-        watcher.poll()
+        watcher.settle()
         XCTAssertEqual(store.entries.first?.id, three[0].id)
         XCTAssertEqual(store.entries.count, 4)
     }
@@ -178,9 +236,9 @@ final class CopyOrderTests: XCTestCase {
         // A copy in FileMaker Pro after other contents moves entry 2 to the top of the history.
         pasteboard.clearContents()
         pasteboard.setString("x", forType: .string)
-        watcher.poll()
+        watcher.settle()
         FMPasteboard.write(Self.compact(2), as: .XMSS, to: pasteboard)
-        watcher.poll()
+        watcher.settle()
         XCTAssertEqual(store.entries.first?.id, three[1].id)
         let rows = HistoryTree.rows(entries: store.entries, folders: store.folders, expanded: ["Project Test"],
                                     active: false) { _ in true }
