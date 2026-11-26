@@ -129,7 +129,7 @@ struct Arguments {
 
 // MARK: - Output
 
-/// The JSON of an entry. These field names are stable (see the Command-line tool section of README.md).
+/// The JSON of an entry. These field names are stable (see the Command-Line Tool page of the wiki).
 func entryJSON(_ e: HistoryEntry, _ store: HistoryStore) -> [String: Any] {
     let url = store.fileURL(for: e)
     let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0

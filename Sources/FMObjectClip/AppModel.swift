@@ -721,6 +721,6 @@ final class AppModel: ObservableObject {
     }
 
     func openHelp() {
-        NSWorkspace.shared.open(URL(string: "https://github.com/solutionscay/fm-object-clip#readme")!)
+        NSWorkspace.shared.open(URL(string: "https://github.com/solutionscay/fm-object-clip/wiki")!)
     }
 }
